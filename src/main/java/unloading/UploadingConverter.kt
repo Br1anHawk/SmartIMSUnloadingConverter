@@ -1,3 +1,5 @@
+package unloading
+
 import com.linuxense.javadbf.DBFDataType
 import com.linuxense.javadbf.DBFField
 import com.linuxense.javadbf.DBFWriter
@@ -5,21 +7,25 @@ import org.apache.poi.hssf.usermodel.HSSFWorkbook
 import org.apache.poi.ss.usermodel.*
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.*
+import java.nio.charset.Charset
 import java.text.SimpleDateFormat
 import java.util.*
 
 class UploadingConverter(
-    private val uploadingFile: File
+    private val uploadingFile: File,
+    private val uploadingDateTarget: Calendar
 ) {
     private var uploadingSheet: Sheet
     private var uploadingWorkbook: Workbook
 
     private var uploadingDataOfSubscribersHousehold: MutableList<Subscriber> = mutableListOf()
     private var uploadingDataOfSubscribersLegal: MutableList<Subscriber> = mutableListOf()
+    private var uploadingDataOfUnknownSubscribers: MutableList<Subscriber> = mutableListOf()
 
     private var differentiatedRatesFileReport: File? = null
     private var differentiatedRatesFileReportColumnNumberOfMeterNumber = 2
     private var differentiatedRatesFileReportColumnNumberOfMeterReadings = 4
+    private var differentiatedRatesFileReportColumnNumberOfRemark = 5
 
     init {
         val fileInputStream = FileInputStream(uploadingFile)
@@ -66,6 +72,11 @@ class UploadingConverter(
                 CellType.NUMERIC -> meterReadingRateTwo = rowContent.getCell(COLUMN_NUMBER_METER_READING_RATE_TWO).numericCellValue
                 CellType.BLANK -> meterReadingRateTwo = rowContent.getCell(COLUMN_NUMBER_METER_READING_RATE_TWO_ALTERNATIVE).numericCellValue
             }
+            var meterReadingRateThree = 0.0
+            when (rowContent.getCell(COLUMN_NUMBER_METER_READING_RATE_THREE).cellType) {
+                CellType.NUMERIC -> meterReadingRateThree = rowContent.getCell(COLUMN_NUMBER_METER_READING_RATE_THREE).numericCellValue
+                CellType.BLANK -> meterReadingRateThree = rowContent.getCell(COLUMN_NUMBER_METER_READING_RATE_THREE_ALTERNATIVE).numericCellValue
+            }
 
             val subscriber = Subscriber(
                 rowContent.getCell(COLUMN_NUMBER_DATE_OF_READINGS).dateCellValue,
@@ -80,7 +91,8 @@ class UploadingConverter(
                 ),
                 meterReadingSum,
                 meterReadingRateOne,
-                meterReadingRateTwo
+                meterReadingRateTwo,
+                meterReadingRateThree
             )
             if (code.toLongOrNull() != null) {
                 if (code.length == PERSONAL_ACCOUNT_LENGTH) {
@@ -89,7 +101,11 @@ class UploadingConverter(
                     uploadingDataOfSubscribersLegal.add(subscriber)
                 }
             } else {
-                uploadingDataOfSubscribersLegal.add(subscriber)
+                if (code.isEmpty()) {
+                    uploadingDataOfUnknownSubscribers.add(subscriber)
+                } else {
+                    uploadingDataOfSubscribersLegal.add(subscriber)
+                }
             }
             contentSheetLineNumberPosition++
         }
@@ -97,18 +113,27 @@ class UploadingConverter(
 
     private fun isErrorDataInRow(row: Row): Boolean {
         var isError = false
-        if (row.getCell(COLUMN_NUMBER_CODE).cellType == CellType.BLANK) isError = true
-        if (row.getCell(COLUMN_NUMBER_ADDRESS).cellType == CellType.BLANK) isError = true
+        val rowContentDate = row.getCell(COLUMN_NUMBER_DATE_OF_READINGS).dateCellValue
+        val rowContentDateCalendar = Calendar.getInstance()
+        rowContentDateCalendar.time = rowContentDate
+        //if (row.getCell(COLUMN_NUMBER_CODE).cellType == CellType.BLANK) isError = true
+        //if (row.getCell(COLUMN_NUMBER_ADDRESS).cellType == CellType.BLANK) isError = true
+        if (rowContentDateCalendar.get(Calendar.YEAR) != uploadingDateTarget.get(Calendar.YEAR) ||
+                rowContentDateCalendar.get(Calendar.MONTH) != uploadingDateTarget.get(Calendar.MONTH) ||
+                rowContentDateCalendar.get(Calendar.DAY_OF_MONTH) != uploadingDateTarget.get(Calendar.DAY_OF_MONTH)) {
+            isError = true
+        }
 
         return isError
     }
 
     private fun createDBFUploadingFile(prefixFileName: String, uploadingData: MutableList<Subscriber>) {
         val calendar = Calendar.getInstance()
-        val formatter = SimpleDateFormat("yyyy-MM-dd_HH:mm:ss")
+        val formatter = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss")
         val fileName = prefixFileName + formatter.format(calendar.time) + ".dbf"
         val fos = FileOutputStream(fileName)
         val writerDBF = DBFWriter(fos)
+        writerDBF.charset = Charset.forName("cp1251")
         val fields: MutableList<DBFField> = mutableListOf()
 
         var field = DBFField()
@@ -317,10 +342,16 @@ class UploadingConverter(
         fos.close()
     }
 
-    fun loadDifferentiatedRatesFileReport(file: File, columnNumberOfMeterNumber: String, columnNumberOfMeterReadings: String) {
+    fun loadDifferentiatedRatesFileReport(
+            file: File,
+            columnNumberOfMeterNumber: String,
+            columnNumberOfMeterReadings: String,
+            columnNumberOfRemark: String
+    ) {
         differentiatedRatesFileReport = file
         columnNumberOfMeterNumber.toIntOrNull()?.let { differentiatedRatesFileReportColumnNumberOfMeterNumber = it }
         columnNumberOfMeterReadings.toIntOrNull()?.let { differentiatedRatesFileReportColumnNumberOfMeterReadings = it }
+        columnNumberOfRemark.toIntOrNull()?.let { differentiatedRatesFileReportColumnNumberOfRemark = it }
     }
 
     fun fillDifferentiatedRatesFileReportWithDataOfSubscribers() {
@@ -358,15 +389,31 @@ class UploadingConverter(
                     }
                 }
                 CellType.NUMERIC -> meterNumber = cell.numericCellValue.toInt().toString()
+                CellType.BLANK ->  {
+                    contentSheetLineNumberPosition++
+                    continue
+                }
+                else ->  {
+                    contentSheetLineNumberPosition++
+                    continue
+                }
             }
 
-            val subscriber = uploadingDataOfSubscribersHousehold.find { it.meterNumber == meterNumber }
-            rowContent.getCell(differentiatedRatesFileReportColumnNumberOfMeterReadings).setCellValue(subscriber?.meterReadingSum?.toInt().toString())
+            val subscriber = uploadingDataOfUnknownSubscribers.find { it.meterNumber == meterNumber }
+            rowContent.getCell(differentiatedRatesFileReportColumnNumberOfMeterReadings).setCellValue((subscriber?.meterReadingSum?.toInt() ?: DATA_NO_FOUND).toString())
+            rowContent.getCell(differentiatedRatesFileReportColumnNumberOfRemark).setCellValue(
+                    if (subscriber != null) {
+                        WORKING
+                    } else {
+                        NOT_WORKING
+                    }
+            )
             contentSheetLineNumberPosition++
-            sheet.getRow(contentSheetLineNumberPosition).getCell(differentiatedRatesFileReportColumnNumberOfMeterReadings).setCellValue(subscriber?.meterReadingRateOne?.toInt().toString())
+            sheet.getRow(contentSheetLineNumberPosition).getCell(differentiatedRatesFileReportColumnNumberOfMeterReadings).setCellValue((subscriber?.meterReadingRateOne?.toInt() ?: DATA_NO_FOUND).toString())
             contentSheetLineNumberPosition++
-            sheet.getRow(contentSheetLineNumberPosition).getCell(differentiatedRatesFileReportColumnNumberOfMeterReadings).setCellValue(subscriber?.meterReadingRateTwo?.toInt().toString())
+            sheet.getRow(contentSheetLineNumberPosition).getCell(differentiatedRatesFileReportColumnNumberOfMeterReadings).setCellValue((subscriber?.meterReadingRateTwo?.toInt() ?: DATA_NO_FOUND).toString())
             contentSheetLineNumberPosition++
+            sheet.getRow(contentSheetLineNumberPosition)?.getCell(differentiatedRatesFileReportColumnNumberOfMeterReadings)?.setCellValue((subscriber?.meterReadingRateThree?.toInt() ?: DATA_NO_FOUND).toString())
         }
 
         val fileOutputStream = FileOutputStream(differentiatedRatesFileReport)
@@ -404,10 +451,13 @@ class UploadingConverter(
         const val COLUMN_NUMBER_METER_READING_RATE_TWO = 8
         const val COLUMN_NUMBER_METER_READING_RATE_TWO_ALTERNATIVE = 12
 
+        const val COLUMN_NUMBER_METER_READING_RATE_THREE = 9
+        const val COLUMN_NUMBER_METER_READING_RATE_THREE_ALTERNATIVE = 13
+
         const val PERSONAL_ACCOUNT_LENGTH = 9
 
-        const val UPLOADING_DBF_HOUSEHOLD_FILE_NAME = "Smart_IMS_uploading_household_"
-        const val UPLOADING_DBF_LEGAL_FILE_NAME = "Smart_IMS_uploading_legal_"
+        const val UPLOADING_DBF_HOUSEHOLD_FILE_NAME = "Smart_IMS_unloading_household_"
+        const val UPLOADING_DBF_LEGAL_FILE_NAME = "Smart_IMS_unloading_legal_"
         const val DBF_PROPERTY_ZAVOD = "TeleTec"
 
         const val DATA_NO_FOUND = "\u2014" //long dash
