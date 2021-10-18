@@ -1,3 +1,5 @@
+package consumption
+
 import java.util.*
 
 data class Indication (

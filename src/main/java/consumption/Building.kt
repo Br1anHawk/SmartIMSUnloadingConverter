@@ -1,7 +1,9 @@
+package consumption
+
 class Building (
-     val address: String,
-     val balancePoints: MutableList<AccountingPoint> = mutableListOf(),
-     val flats: MutableList<AccountingPoint> = mutableListOf()
+        val address: String,
+        val balancePoints: MutableList<AccountingPoint> = mutableListOf(),
+        val flats: MutableList<AccountingPoint> = mutableListOf()
 ) {
     var balancedMetersConsumption = 0.0
     var flatsConsumption = 0.0

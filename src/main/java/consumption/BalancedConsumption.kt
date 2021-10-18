@@ -1,3 +1,5 @@
+package consumption
+
 import org.apache.poi.hssf.usermodel.HSSFWorkbook
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -47,21 +49,26 @@ class BalancedConsumption(
                 CellType.NUMERIC -> meterReadingSum = rowContent.getCell(COLUMN_NUMBER_METER_READING_SUM).numericCellValue
                 CellType.BLANK -> meterReadingSum = rowContent.getCell(COLUMN_NUMBER_METER_READING_SUM_ALTERNATIVE).numericCellValue
             }
+            if (meterReadingSum.isNaN()) meterReadingSum = 0.0
             var meterReadingRateOne = 0.0
             when (rowContent.getCell(UploadingConverter.COLUMN_NUMBER_METER_READING_RATE_ONE).cellType) {
                 CellType.NUMERIC -> meterReadingRateOne = rowContent.getCell(COLUMN_NUMBER_METER_READING_RATE_ONE).numericCellValue
                 CellType.BLANK -> meterReadingRateOne = rowContent.getCell(COLUMN_NUMBER_METER_READING_RATE_ONE_ALTERNATIVE).numericCellValue
             }
+            if (meterReadingRateOne.isNaN()) meterReadingRateOne = 0.0
             var meterReadingRateTwo = 0.0
             when (rowContent.getCell(UploadingConverter.COLUMN_NUMBER_METER_READING_RATE_TWO).cellType) {
                 CellType.NUMERIC -> meterReadingRateTwo = rowContent.getCell(COLUMN_NUMBER_METER_READING_RATE_TWO).numericCellValue
                 CellType.BLANK -> meterReadingRateTwo = rowContent.getCell(COLUMN_NUMBER_METER_READING_RATE_TWO_ALTERNATIVE).numericCellValue
             }
+            if (meterReadingRateTwo.isNaN()) meterReadingRateTwo = 0.0
             var meterReadingRateThree = 0.0
             when (rowContent.getCell(UploadingConverter.COLUMN_NUMBER_METER_READING_RATE_THREE).cellType) {
                 CellType.NUMERIC -> meterReadingRateThree = rowContent.getCell(COLUMN_NUMBER_METER_READING_RATE_THREE).numericCellValue
                 CellType.BLANK -> meterReadingRateThree = rowContent.getCell(COLUMN_NUMBER_METER_READING_RATE_THREE_ALTERNATIVE).numericCellValue
             }
+            if (meterReadingRateThree.isNaN()) meterReadingRateThree = 0.0
+
             val indication = Indication(
                     date = date,
                     rateSum = meterReadingSum,
@@ -86,12 +93,21 @@ class BalancedConsumption(
             meterNumber: String,
             indication: Indication
     ) {
-        if (!accountingPointName.contains(Regex(BALANCE_METER_CRITERIA)) || accountingPointName.toIntOrNull() == null) return
+        var accountingPointType = AccountingPointType.APARTMENT
+        if (accountingPointName.toIntOrNull() == null) {
+            if (!accountingPointName.contains(Regex(BALANCE_METER_CRITERIA))) return
+            accountingPointType = AccountingPointType.BALANCED
+        }
         var building = buildings.find { it.address == address }
         building = building ?: Building(address).also { buildings.add(it) }
         var accountingPoint = building.balancePoints.find { it.meterNumber == meterNumber }
         accountingPoint = accountingPoint ?: building.flats.find { it.meterNumber == meterNumber }
-        accountingPoint = accountingPoint ?: AccountingPoint(accountingPointName, meterNumber)
+        accountingPoint = accountingPoint ?: AccountingPoint(accountingPointName, meterNumber).also {
+            when(accountingPointType) {
+                AccountingPointType.BALANCED -> building.balancePoints.add(it)
+                AccountingPointType.APARTMENT -> building.flats.add(it)
+            }
+        }
         accountingPoint.indications.add(indication)
     }
 
@@ -104,12 +120,13 @@ class BalancedConsumption(
         buildings.forEach {
             val rowContent = sheet.createRow(contentRowId)
             var contentCellId = 0
-            rowContent.createCell(contentCellId++).setCellValue(contentCellId.toString())
+            rowContent.createCell(contentCellId++).setCellValue(contentRowId.toString())
             rowContent.createCell(contentCellId++).setCellValue(it.address)
             rowContent.createCell(contentCellId++).setCellValue(it.balancedMetersConsumption)
             rowContent.createCell(contentCellId++).setCellValue(it.flatsConsumption)
             rowContent.createCell(contentCellId++).setCellValue(it.relativeImbalance)
             rowContent.createCell(contentCellId++).setCellValue(it.absoluteImbalance)
+            contentRowId++
         }
 
         workbook.write(fileOutputStream)
@@ -139,7 +156,7 @@ class BalancedConsumption(
 
         const val BALANCE_METER_CRITERIA = "бал"
 
-        const val REPORT_FILE_NAME = "Smart_balanced_consumption_report"
+        const val REPORT_FILE_NAME = "Smart_balanced_consumption_report.xlsx"
 
         const val PERSONAL_ACCOUNT_LENGTH = 9
 

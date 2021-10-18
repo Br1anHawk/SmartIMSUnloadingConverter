@@ -1,3 +1,4 @@
+import consumption.BalancedConsumption;
 import unloading.UploadingConverter;
 
 import javax.swing.*;
