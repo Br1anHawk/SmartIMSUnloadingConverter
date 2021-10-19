@@ -129,8 +129,8 @@ class UploadingConverter(
 
     private fun createDBFUploadingFile(prefixFileName: String, uploadingData: MutableList<Subscriber>) {
         val calendar = Calendar.getInstance()
-        val formatter = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss")
-        val fileName = prefixFileName + formatter.format(calendar.time) + ".dbf"
+        val formatter = SimpleDateFormat("yyyy-MM-dd_'${prefixFileName}'_HH-mm-ss")
+        val fileName = formatter.format(calendar.time) + ".dbf"
         val fos = FileOutputStream(fileName)
         val writerDBF = DBFWriter(fos)
         writerDBF.charset = Charset.forName("cp1251")
@@ -323,7 +323,7 @@ class UploadingConverter(
             rowData.add(subscriber.code)
             rowData.add(DBF_PROPERTY_ZAVOD)
             rowData.add("")
-            rowData.add(subscriber.meterNumber)
+            rowData.add("0" + subscriber.meterNumber)
             rowData.add(subscriber.address.street)
             rowData.add(subscriber.address.buildingNumber)
             rowData.add("")
@@ -456,8 +456,8 @@ class UploadingConverter(
 
         const val PERSONAL_ACCOUNT_LENGTH = 9
 
-        const val UPLOADING_DBF_HOUSEHOLD_FILE_NAME = "Smart_IMS_unloading_household_"
-        const val UPLOADING_DBF_LEGAL_FILE_NAME = "Smart_IMS_unloading_legal_"
+        const val UPLOADING_DBF_HOUSEHOLD_FILE_NAME = "Smart_IMS_unloading_household"
+        const val UPLOADING_DBF_LEGAL_FILE_NAME = "Smart_IMS_unloading_legal"
         const val DBF_PROPERTY_ZAVOD = "TeleTec"
 
         const val DATA_NO_FOUND = "\u2014" //long dash

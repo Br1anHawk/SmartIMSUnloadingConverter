@@ -2,6 +2,9 @@ package consumption
 
 import org.apache.poi.hssf.usermodel.HSSFWorkbook
 import org.apache.poi.ss.usermodel.CellType
+import org.apache.poi.ss.usermodel.HorizontalAlignment
+import org.apache.poi.xssf.usermodel.XSSFCell
+import org.apache.poi.xssf.usermodel.XSSFFont
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import unloading.UploadingConverter
 import java.io.File
@@ -33,6 +36,7 @@ class BalancedConsumption(
 
             val date = rowContent.getCell(COLUMN_NUMBER_DATE_OF_READINGS).dateCellValue
             val meterNumber = rowContent.getCell(COLUMN_NUMBER_METER_NUMBER).stringCellValue
+            val code = rowContent.getCell(COLUMN_NUMBER_CODE).stringCellValue.trim()
             var address = rowContent.getCell(COLUMN_NUMBER_ADDRESS).stringCellValue.toLowerCase().trim()
 
             if (address.isEmpty()) {
@@ -78,6 +82,7 @@ class BalancedConsumption(
             )
             addIndication(
                     address = address,
+                    code = code,
                     accountingPointName = accountingPointName,
                     meterNumber = meterNumber,
                     indication = indication
@@ -89,6 +94,7 @@ class BalancedConsumption(
 
     private fun addIndication(
             address: String,
+            code: String,
             accountingPointName: String,
             meterNumber: String,
             indication: Indication
@@ -102,7 +108,7 @@ class BalancedConsumption(
         building = building ?: Building(address).also { buildings.add(it) }
         var accountingPoint = building.balancePoints.find { it.meterNumber == meterNumber }
         accountingPoint = accountingPoint ?: building.flats.find { it.meterNumber == meterNumber }
-        accountingPoint = accountingPoint ?: AccountingPoint(accountingPointName, meterNumber).also {
+        accountingPoint = accountingPoint ?: AccountingPoint(code, accountingPointName, meterNumber).also {
             when(accountingPointType) {
                 AccountingPointType.BALANCED -> building.balancePoints.add(it)
                 AccountingPointType.APARTMENT -> building.flats.add(it)
@@ -116,17 +122,74 @@ class BalancedConsumption(
         val workbook = XSSFWorkbook()
         val sheet = workbook.createSheet()
 
+        val font = workbook.createFont()
+        font.setFontHeight(14.0)
+        font.fontName = "Verdana"
+        font.bold = true
+        val cellStyle = workbook.createCellStyle()
+        cellStyle.alignment = HorizontalAlignment.CENTER
+        cellStyle.setFont(XSSFFont(font.ctFont))
+
+        var cell: XSSFCell
         var contentRowId = 0
+        val rowContent = sheet.createRow(contentRowId)
+        var contentCellId = 0
+        cell = rowContent.createCell(contentCellId++)
+        cell.cellStyle = cellStyle
+        cell.setCellValue(COLUMN_HEADER_NUMBER)
+        cell = rowContent.createCell(contentCellId++)
+        cell.cellStyle = cellStyle
+        cell.setCellValue(COLUMN_HEADER_ADDRESS)
+        cell = rowContent.createCell(contentCellId++)
+        cell.cellStyle = cellStyle
+        cell.setCellValue(COLUMN_HEADER_BUILDING_TYPE)
+        cell = rowContent.createCell(contentCellId++)
+        cell.cellStyle = cellStyle
+        cell.setCellValue(COLUMN_HEADER_BALANCED_METERS_CONSUMPTION)
+        cell = rowContent.createCell(contentCellId++)
+        cell.cellStyle = cellStyle
+        cell.setCellValue(COLUMN_HEADER_FLATS_CONSUMPTION)
+        cell = rowContent.createCell(contentCellId++)
+        cell.cellStyle = cellStyle
+        cell.setCellValue(COLUMN_HEADER_RELATIVE_IMBALANCE)
+        cell = rowContent.createCell(contentCellId++)
+        cell.cellStyle = cellStyle
+        cell.setCellValue(COLUMN_HEADER_ABSOLUTE_IMBALANCE)
+        contentRowId++
+        val columnsCount = rowContent.lastCellNum
+
+        font.bold = false
+        cellStyle.setFont(font)
+
         buildings.forEach {
             val rowContent = sheet.createRow(contentRowId)
-            var contentCellId = 0
-            rowContent.createCell(contentCellId++).setCellValue(contentRowId.toString())
-            rowContent.createCell(contentCellId++).setCellValue(it.address)
-            rowContent.createCell(contentCellId++).setCellValue(it.balancedMetersConsumption)
-            rowContent.createCell(contentCellId++).setCellValue(it.flatsConsumption)
-            rowContent.createCell(contentCellId++).setCellValue(it.relativeImbalance)
-            rowContent.createCell(contentCellId++).setCellValue(it.absoluteImbalance)
+            contentCellId = 0
+            cell = rowContent.createCell(contentCellId++)
+            cell.cellStyle = cellStyle
+            cell.setCellValue(contentRowId.toString())
+            cell = rowContent.createCell(contentCellId++)
+            cell.cellStyle = cellStyle
+            cell.setCellValue(it.address)
+            cell = rowContent.createCell(contentCellId++)
+            cell.cellStyle = cellStyle
+            cell.setCellValue(it.buildingType.toString())
+            cell = rowContent.createCell(contentCellId++)
+            cell.cellStyle = cellStyle
+            cell.setCellValue(it.balancedMetersConsumption)
+            cell = rowContent.createCell(contentCellId++)
+            cell.cellStyle = cellStyle
+            cell.setCellValue(it.flatsConsumption)
+            cell = rowContent.createCell(contentCellId++)
+            cell.cellStyle = cellStyle
+            cell.setCellValue(it.relativeImbalance)
+            cell = rowContent.createCell(contentCellId++)
+            cell.cellStyle = cellStyle
+            cell.setCellValue(it.absoluteImbalance)
             contentRowId++
+        }
+
+        for (columnNumber in 0 until columnsCount) {
+            sheet.autoSizeColumn(columnNumber)
         }
 
         workbook.write(fileOutputStream)
@@ -157,8 +220,17 @@ class BalancedConsumption(
         const val BALANCE_METER_CRITERIA = "бал"
 
         const val REPORT_FILE_NAME = "Smart_balanced_consumption_report.xlsx"
+        const val COLUMN_HEADER_NUMBER = "№"
+        const val COLUMN_HEADER_ADDRESS = "address"
+        const val COLUMN_HEADER_BUILDING_TYPE = "buildingType"
+        const val COLUMN_HEADER_BALANCED_METERS_CONSUMPTION = "balancedMetersConsumption"
+        const val COLUMN_HEADER_FLATS_CONSUMPTION = "flatsConsumption"
+        const val COLUMN_HEADER_RELATIVE_IMBALANCE = "relativeImbalance"
+        const val COLUMN_HEADER_ABSOLUTE_IMBALANCE = "absoluteImbalance"
 
         const val PERSONAL_ACCOUNT_LENGTH = 9
+
+        const val MINIMUM_COUNT_OF_CODES_IN_APARTMENT_BUILDING = 5
 
         const val DATA_NO_FOUND = "\u2014" //long dash
 
