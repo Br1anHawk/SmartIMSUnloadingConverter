@@ -4,12 +4,13 @@ import org.apache.poi.hssf.usermodel.HSSFWorkbook
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.HorizontalAlignment
 import org.apache.poi.xssf.usermodel.XSSFCell
-import org.apache.poi.xssf.usermodel.XSSFFont
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import unloading.UploadingConverter
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.*
 
 class BalancedConsumption(
     private val uploadingFile: File
@@ -118,48 +119,53 @@ class BalancedConsumption(
     }
 
     fun saveReportToTheFile() {
-        val fileOutputStream = FileOutputStream(REPORT_FILE_NAME)
+        val calendar = Calendar.getInstance()
+        val formatter = SimpleDateFormat("yyyy-MM-dd_'${REPORT_FILE_NAME}'_HH-mm-ss")
+        val fileName = formatter.format(calendar.time) + ".xlsx"
+        val fileOutputStream = FileOutputStream(fileName)
         val workbook = XSSFWorkbook()
         val sheet = workbook.createSheet()
 
         val font = workbook.createFont()
         font.setFontHeight(14.0)
-        font.fontName = "Verdana"
+        font.fontName = "Times New Roman"
         font.bold = true
+        val cellStyleHeader = workbook.createCellStyle()
+        cellStyleHeader.alignment = HorizontalAlignment.CENTER
+        cellStyleHeader.setFont(font)
+
         val cellStyle = workbook.createCellStyle()
         cellStyle.alignment = HorizontalAlignment.CENTER
-        cellStyle.setFont(XSSFFont(font.ctFont))
+        font.bold = false
+        cellStyle.setFont(font)
 
         var cell: XSSFCell
         var contentRowId = 0
         val rowContent = sheet.createRow(contentRowId)
         var contentCellId = 0
         cell = rowContent.createCell(contentCellId++)
-        cell.cellStyle = cellStyle
+        cell.cellStyle = cellStyleHeader
         cell.setCellValue(COLUMN_HEADER_NUMBER)
         cell = rowContent.createCell(contentCellId++)
-        cell.cellStyle = cellStyle
+        cell.cellStyle = cellStyleHeader
         cell.setCellValue(COLUMN_HEADER_ADDRESS)
         cell = rowContent.createCell(contentCellId++)
-        cell.cellStyle = cellStyle
+        cell.cellStyle = cellStyleHeader
         cell.setCellValue(COLUMN_HEADER_BUILDING_TYPE)
         cell = rowContent.createCell(contentCellId++)
-        cell.cellStyle = cellStyle
+        cell.cellStyle = cellStyleHeader
         cell.setCellValue(COLUMN_HEADER_BALANCED_METERS_CONSUMPTION)
         cell = rowContent.createCell(contentCellId++)
-        cell.cellStyle = cellStyle
+        cell.cellStyle = cellStyleHeader
         cell.setCellValue(COLUMN_HEADER_FLATS_CONSUMPTION)
         cell = rowContent.createCell(contentCellId++)
-        cell.cellStyle = cellStyle
+        cell.cellStyle = cellStyleHeader
         cell.setCellValue(COLUMN_HEADER_RELATIVE_IMBALANCE)
         cell = rowContent.createCell(contentCellId++)
-        cell.cellStyle = cellStyle
+        cell.cellStyle = cellStyleHeader
         cell.setCellValue(COLUMN_HEADER_ABSOLUTE_IMBALANCE)
         contentRowId++
         val columnsCount = rowContent.lastCellNum
-
-        font.bold = false
-        cellStyle.setFont(font)
 
         buildings.forEach {
             val rowContent = sheet.createRow(contentRowId)
@@ -219,7 +225,7 @@ class BalancedConsumption(
 
         const val BALANCE_METER_CRITERIA = "бал"
 
-        const val REPORT_FILE_NAME = "Smart_balanced_consumption_report.xlsx"
+        const val REPORT_FILE_NAME = "Smart_balanced_consumption_report"
         const val COLUMN_HEADER_NUMBER = "№"
         const val COLUMN_HEADER_ADDRESS = "address"
         const val COLUMN_HEADER_BUILDING_TYPE = "buildingType"

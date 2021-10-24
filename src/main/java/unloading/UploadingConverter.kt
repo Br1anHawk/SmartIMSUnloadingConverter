@@ -3,6 +3,7 @@ package unloading
 import com.linuxense.javadbf.DBFDataType
 import com.linuxense.javadbf.DBFField
 import com.linuxense.javadbf.DBFWriter
+import consumption.BalancedConsumption
 import org.apache.poi.hssf.usermodel.HSSFWorkbook
 import org.apache.poi.ss.usermodel.*
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -363,6 +364,11 @@ class UploadingConverter(
         val sheet = workbook.getSheetAt(0)
         fileInputStream.close()
 
+        val formatter = SimpleDateFormat("dd.MM.yyyy'г.'")
+        val titlePostfix = formatter.format(uploadingDateTarget.time)
+        val rowContentTitle = sheet.getRow(0)
+        rowContentTitle.getCell(0).setCellValue(DIFFERENTIATED_RATES_FILE_REPORT_TITLE_PREFIX + titlePostfix)
+
         var contentSheetLineNumberPosition = 1
         while (sheet.getRow(contentSheetLineNumberPosition) == null) {
             contentSheetLineNumberPosition++
@@ -459,6 +465,8 @@ class UploadingConverter(
         const val UPLOADING_DBF_HOUSEHOLD_FILE_NAME = "Smart_IMS_unloading_household"
         const val UPLOADING_DBF_LEGAL_FILE_NAME = "Smart_IMS_unloading_legal"
         const val DBF_PROPERTY_ZAVOD = "TeleTec"
+
+        const val DIFFERENTIATED_RATES_FILE_REPORT_TITLE_PREFIX = "Показания приборов учета по диф. тарифам (+ \"нагрев\") системы \"SmartIMS\" на "
 
         const val DATA_NO_FOUND = "\u2014" //long dash
         const val WORKING = "Работает"
