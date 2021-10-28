@@ -126,17 +126,20 @@ class BalancedConsumption(
         val workbook = XSSFWorkbook()
         val sheet = workbook.createSheet()
 
-        val font = workbook.createFont()
-        font.setFontHeight(14.0)
-        font.fontName = "Times New Roman"
-        font.bold = true
+        val fontHeader = workbook.createFont()
+        fontHeader.setFontHeight(FONT_SIZE)
+        fontHeader.fontName = FONT_NAME
+        fontHeader.bold = true
         val cellStyleHeader = workbook.createCellStyle()
         cellStyleHeader.alignment = HorizontalAlignment.CENTER
-        cellStyleHeader.setFont(font)
+        cellStyleHeader.setFont(fontHeader)
 
+        val font = workbook.createFont()
+        font.setFontHeight(FONT_SIZE)
+        font.fontName = FONT_NAME
+        font.bold = false
         val cellStyle = workbook.createCellStyle()
         cellStyle.alignment = HorizontalAlignment.CENTER
-        font.bold = false
         cellStyle.setFont(font)
 
         var cell: XSSFCell
@@ -187,7 +190,7 @@ class BalancedConsumption(
             cell.setCellValue(it.flatsConsumption)
             cell = rowContent.createCell(contentCellId++)
             cell.cellStyle = cellStyle
-            cell.setCellValue(it.relativeImbalance)
+            cell.setCellValue(String.format("%.2f" ,it.relativeImbalance))
             cell = rowContent.createCell(contentCellId++)
             cell.cellStyle = cellStyle
             cell.setCellValue(it.absoluteImbalance)
@@ -238,7 +241,7 @@ class BalancedConsumption(
 
         const val MINIMUM_COUNT_OF_CODES_IN_APARTMENT_BUILDING = 5
 
-        const val DATA_NO_FOUND = "\u2014" //long dash
-
+        const val FONT_SIZE = 14.0
+        const val FONT_NAME = "Times New Roman"
     }
 }

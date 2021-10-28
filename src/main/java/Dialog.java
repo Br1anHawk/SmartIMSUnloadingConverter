@@ -1,4 +1,10 @@
+import com.toedter.calendar.JCalendar;
+import com.toedter.calendar.JDateChooser;
+import com.toedter.calendar.JSpinnerDateEditor;
+import com.toedter.calendar.demo.DateChooserPanel;
 import consumption.BalancedConsumption;
+import org.jdatepicker.impl.JDatePanelImpl;
+import org.jdatepicker.impl.JDatePickerImpl;
 import unloading.UploadingConverter;
 
 import javax.swing.*;
@@ -7,6 +13,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 public class Dialog extends JDialog {
@@ -21,6 +28,7 @@ public class Dialog extends JDialog {
     private JButton buttonSettings;
     private JPanel jPannelSettings;
     private JButton buttonCalculateBalancedConsumption;
+    private JSpinnerDateEditor dateTargetChooser;
     private JFileChooser fileChooser;
 
     private UploadingConverter uploadingConverter;
@@ -36,6 +44,16 @@ public class Dialog extends JDialog {
         jPannelSettings.setVisible(false);
         pack();
 
+        Calendar uploadingDateTarget = Calendar.getInstance();
+        uploadingDateTarget.set(
+                uploadingDateTarget.get(Calendar.YEAR),
+                uploadingDateTarget.get(Calendar.MONTH),
+                01,
+                0, 0, 0
+        );
+        dateTargetChooser.setDate(uploadingDateTarget.getTime());
+        dateTargetChooser.setDateFormatString((new SimpleDateFormat("dd-MM-yyyy")).toPattern());
+
         buttonConvertUploading.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -44,13 +62,14 @@ public class Dialog extends JDialog {
                 int isFileSelectedInt = fileChooser.showOpenDialog(contentPane);
                 if (isFileSelectedInt == JFileChooser.APPROVE_OPTION) {
                     File selectedFile = fileChooser.getSelectedFile();
-                    Calendar uploadingDateTarget = Calendar.getInstance();
-                    uploadingDateTarget.set(
-                            uploadingDateTarget.get(Calendar.YEAR),
-                            uploadingDateTarget.get(Calendar.MONTH),
-                            01,
-                            0, 0, 0
-                    );
+//                    Calendar uploadingDateTarget = Calendar.getInstance();
+//                    uploadingDateTarget.set(
+//                            uploadingDateTarget.get(Calendar.YEAR),
+//                            uploadingDateTarget.get(Calendar.MONTH),
+//                            01,
+//                            0, 0, 0
+//                    );
+                    uploadingDateTarget.setTime(dateTargetChooser.getDate());
                     uploadingConverter = new UploadingConverter(selectedFile, uploadingDateTarget);
                     buttonLoadAndFillDifferentiatedRatesFileReport.setEnabled(true);
                 }
