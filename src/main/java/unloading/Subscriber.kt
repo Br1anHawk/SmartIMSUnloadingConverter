@@ -10,5 +10,6 @@ data class Subscriber(
         val meterReadingSum: Double,
         val meterReadingRateOne: Double,
         val meterReadingRateTwo: Double,
-        val meterReadingRateThree: Double
+        val meterReadingRateThree: Double,
+        val diffRates: MutableList<String> = mutableListOf()
 )

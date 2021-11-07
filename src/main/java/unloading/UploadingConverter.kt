@@ -24,6 +24,7 @@ class UploadingConverter(
     private var uploadingDataOfUnknownSubscribers: MutableList<Subscriber> = mutableListOf()
 
     private var differentiatedRatesFileReport: File? = null
+    private var differentiatedRatesFileReportColumnNumberOfPersonalAccount = 1
     private var differentiatedRatesFileReportColumnNumberOfMeterNumber = 2
     private var differentiatedRatesFileReportColumnNumberOfMeterReadings = 4
     private var differentiatedRatesFileReportColumnNumberOfRemark = 5
@@ -321,6 +322,32 @@ class UploadingConverter(
 
         val rowData: MutableList<Any> = mutableListOf()
         for (subscriber in uploadingData) {
+            for (rateNumber in subscriber.diffRates.indices) {
+                rowData.add(subscriber.diffRates[rateNumber])
+                rowData.add(DBF_PROPERTY_ZAVOD)
+                rowData.add("")
+                rowData.add("0" + subscriber.meterNumber)
+                rowData.add(subscriber.address.street)
+                rowData.add(subscriber.address.buildingNumber)
+                rowData.add("")
+                rowData.add(subscriber.address.accountingPoint)
+                rowData.add(subscriber.dateOfReadings)
+                rowData.add(
+                        when (rateNumber) {
+                            0 -> subscriber.meterReadingRateOne
+                            1 -> subscriber.meterReadingRateTwo
+                            2 -> subscriber.meterReadingRateThree
+                            else -> subscriber.meterReadingSum
+                        }
+                )
+                for (i in 1..17) {
+                    rowData.add(0.0)
+                }
+                writerDBF.addRecord(rowData.toTypedArray())
+                rowData.clear()
+            }
+            if (subscriber.diffRates.isNotEmpty()) continue
+
             rowData.add(subscriber.code)
             rowData.add(DBF_PROPERTY_ZAVOD)
             rowData.add("")
@@ -345,11 +372,13 @@ class UploadingConverter(
 
     fun loadDifferentiatedRatesFileReport(
             file: File,
+            columnNumberOfPersonalAccount: String,
             columnNumberOfMeterNumber: String,
             columnNumberOfMeterReadings: String,
             columnNumberOfRemark: String
     ) {
         differentiatedRatesFileReport = file
+        columnNumberOfPersonalAccount.toIntOrNull()?.let { differentiatedRatesFileReportColumnNumberOfPersonalAccount = it }
         columnNumberOfMeterNumber.toIntOrNull()?.let { differentiatedRatesFileReportColumnNumberOfMeterNumber = it }
         columnNumberOfMeterReadings.toIntOrNull()?.let { differentiatedRatesFileReportColumnNumberOfMeterReadings = it }
         columnNumberOfRemark.toIntOrNull()?.let { differentiatedRatesFileReportColumnNumberOfRemark = it }
@@ -429,6 +458,100 @@ class UploadingConverter(
         fileOutputStream.close()
     }
 
+    fun createDifferentiatedRatesFileUnloadingWithDataOfSubscribers() {
+        differentiatedRatesFileReport ?: return
+        val differentiatedRatesFileReport = requireNotNull(this.differentiatedRatesFileReport)
+
+        val fileInputStream = FileInputStream(differentiatedRatesFileReport)
+        val workbook = XSSFWorkbook(fileInputStream)
+        val sheet = workbook.getSheetAt(0)
+        //workbook.close()
+        fileInputStream.close()
+
+        val subscribersWithDiffRates: MutableList<Subscriber> = mutableListOf()
+
+        var contentSheetLineNumberPosition = 1
+        while (sheet.getRow(contentSheetLineNumberPosition) == null) {
+            contentSheetLineNumberPosition++
+            continue
+        }
+
+        while (true) {
+            val rowContent = sheet.getRow(contentSheetLineNumberPosition)
+            rowContent ?: break
+            var meterNumber = ""
+            val cell = rowContent.getCell(differentiatedRatesFileReportColumnNumberOfMeterNumber)
+            if (cell == null) {
+                contentSheetLineNumberPosition++
+                continue
+            }
+            when (cell.cellType) {
+                CellType.STRING -> {
+                    val cellContent = cell.stringCellValue
+                    if (cellContent.toIntOrNull() != null) {
+                        meterNumber = cellContent
+                    } else {
+                        contentSheetLineNumberPosition++
+                        continue
+                    }
+                }
+                CellType.NUMERIC -> meterNumber = cell.numericCellValue.toInt().toString()
+                CellType.BLANK ->  {
+                    contentSheetLineNumberPosition++
+                    continue
+                }
+                else ->  {
+                    contentSheetLineNumberPosition++
+                    continue
+                }
+            }
+
+            val subscriber = uploadingDataOfUnknownSubscribers.find { it.meterNumber == meterNumber }
+            if (subscriber == null) {
+                contentSheetLineNumberPosition++
+                continue
+            }
+            subscribersWithDiffRates.add(subscriber)
+
+            contentSheetLineNumberPosition++
+            while (true) {
+                val rowContentForPersonalAccount = sheet.getRow(contentSheetLineNumberPosition)
+                rowContentForPersonalAccount ?: break
+                var code = ""
+                val cellPersonalAccount = rowContentForPersonalAccount.getCell(differentiatedRatesFileReportColumnNumberOfPersonalAccount)
+                if (cellPersonalAccount == null) {
+                    contentSheetLineNumberPosition++
+                    break
+                }
+                when (cellPersonalAccount.cellType) {
+                    CellType.STRING -> {
+                        val cellPersonalAccountContent = cellPersonalAccount.stringCellValue
+                        if (cellPersonalAccountContent.toIntOrNull() != null) {
+                            code = cellPersonalAccountContent
+                        } else {
+                            contentSheetLineNumberPosition++
+                            break
+                        }
+                    }
+                    CellType.NUMERIC -> code = cellPersonalAccount.numericCellValue.toLong().toString()
+                    CellType.BLANK ->  {
+                        contentSheetLineNumberPosition++
+                        break
+                    }
+                    else ->  {
+                        contentSheetLineNumberPosition++
+                        break
+                    }
+                }
+                subscriber.diffRates.add(code)
+                contentSheetLineNumberPosition++
+            }
+
+        }
+        createDBFUploadingFile(UPLOADING_DBF_HOUSEHOLD_WITH_DIFF_RATES_FILE_NAME, subscribersWithDiffRates)
+        workbook.close()
+    }
+
     private fun correctUploading() {
 
         //save()
@@ -465,6 +588,8 @@ class UploadingConverter(
         const val UPLOADING_DBF_HOUSEHOLD_FILE_NAME = "Smart_IMS_unloading_household"
         const val UPLOADING_DBF_LEGAL_FILE_NAME = "Smart_IMS_unloading_legal"
         const val DBF_PROPERTY_ZAVOD = "TeleTec"
+
+        const val UPLOADING_DBF_HOUSEHOLD_WITH_DIFF_RATES_FILE_NAME = "Smart_IMS_unloading_household_with_diff_rates"
 
         const val DIFFERENTIATED_RATES_FILE_REPORT_TITLE_PREFIX = "Показания приборов учета по диф. тарифам (+ \"нагрев\") системы \"SmartIMS\" на "
 

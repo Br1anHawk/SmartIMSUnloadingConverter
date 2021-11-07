@@ -1,17 +1,11 @@
-import com.toedter.calendar.JCalendar;
-import com.toedter.calendar.JDateChooser;
 import com.toedter.calendar.JSpinnerDateEditor;
-import com.toedter.calendar.demo.DateChooserPanel;
 import consumption.BalancedConsumption;
-import org.jdatepicker.impl.JDatePanelImpl;
-import org.jdatepicker.impl.JDatePickerImpl;
 import unloading.UploadingConverter;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.*;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -29,6 +23,8 @@ public class Dialog extends JDialog {
     private JPanel jPannelSettings;
     private JButton buttonCalculateBalancedConsumption;
     private JSpinnerDateEditor dateTargetChooser;
+    private JTextField textFieldColumnNumberOfPersonalAccount;
+    private JButton buttonCreateDiffRatesUnloading;
     private JFileChooser fileChooser;
 
     private UploadingConverter uploadingConverter;
@@ -41,6 +37,7 @@ public class Dialog extends JDialog {
         getRootPane().setDefaultButton(buttonOK);
 
         buttonLoadAndFillDifferentiatedRatesFileReport.setEnabled(false);
+        buttonCreateDiffRatesUnloading.setEnabled(false);
         jPannelSettings.setVisible(false);
         pack();
 
@@ -72,6 +69,7 @@ public class Dialog extends JDialog {
                     uploadingDateTarget.setTime(dateTargetChooser.getDate());
                     uploadingConverter = new UploadingConverter(selectedFile, uploadingDateTarget);
                     buttonLoadAndFillDifferentiatedRatesFileReport.setEnabled(true);
+                    buttonCreateDiffRatesUnloading.setEnabled(true);
                 }
             }
         });
@@ -86,11 +84,32 @@ public class Dialog extends JDialog {
                     File selectedFile = fileChooser.getSelectedFile();
                     uploadingConverter.loadDifferentiatedRatesFileReport(
                             selectedFile,
+                            textFieldColumnNumberOfPersonalAccount.getText(),
                             textFieldColumnNumberOfMeterNumber.getText(),
                             textFieldColumnNumberOfMeterReadings.getText(),
                             textFieldColumnNumberOfRemark.getText()
                     );
                     uploadingConverter.fillDifferentiatedRatesFileReportWithDataOfSubscribers();
+                }
+            }
+        });
+
+        buttonCreateDiffRatesUnloading.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                fileChooser = new JFileChooser();
+                fileChooser.setFileFilter(new FileNameExtensionFilter("Excel files", "xlsx"));
+                int isFileSelectedInt = fileChooser.showOpenDialog(contentPane);
+                if (isFileSelectedInt == JFileChooser.APPROVE_OPTION) {
+                    File selectedFile = fileChooser.getSelectedFile();
+                    uploadingConverter.loadDifferentiatedRatesFileReport(
+                            selectedFile,
+                            textFieldColumnNumberOfPersonalAccount.getText(),
+                            textFieldColumnNumberOfMeterNumber.getText(),
+                            textFieldColumnNumberOfMeterReadings.getText(),
+                            textFieldColumnNumberOfRemark.getText()
+                    );
+                    uploadingConverter.createDifferentiatedRatesFileUnloadingWithDataOfSubscribers();
                 }
             }
         });
@@ -118,6 +137,13 @@ public class Dialog extends JDialog {
                     balancedConsumption = new BalancedConsumption(selectedFile);
                     balancedConsumption.saveReportToTheFile();
                 }
+            }
+        });
+
+        dateTargetChooser.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                super.focusLost(e);
             }
         });
     }
