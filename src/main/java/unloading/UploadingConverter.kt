@@ -520,7 +520,7 @@ class UploadingConverter(
                 var code = ""
                 val cellPersonalAccount = rowContentForPersonalAccount.getCell(differentiatedRatesFileReportColumnNumberOfPersonalAccount)
                 if (cellPersonalAccount == null) {
-                    contentSheetLineNumberPosition++
+                    //contentSheetLineNumberPosition++
                     break
                 }
                 when (cellPersonalAccount.cellType) {
@@ -529,17 +529,17 @@ class UploadingConverter(
                         if (cellPersonalAccountContent.toIntOrNull() != null) {
                             code = cellPersonalAccountContent
                         } else {
-                            contentSheetLineNumberPosition++
+                            //contentSheetLineNumberPosition++
                             break
                         }
                     }
                     CellType.NUMERIC -> code = cellPersonalAccount.numericCellValue.toLong().toString()
                     CellType.BLANK ->  {
-                        contentSheetLineNumberPosition++
+                        //contentSheetLineNumberPosition++
                         break
                     }
                     else ->  {
-                        contentSheetLineNumberPosition++
+                        //contentSheetLineNumberPosition++
                         break
                     }
                 }
@@ -550,6 +550,8 @@ class UploadingConverter(
         }
         createDBFUploadingFile(UPLOADING_DBF_HOUSEHOLD_WITH_DIFF_RATES_FILE_NAME, subscribersWithDiffRates)
         workbook.close()
+
+        subscribersWithDiffRates.forEach { it.diffRates.clear() }
     }
 
     private fun correctUploading() {
