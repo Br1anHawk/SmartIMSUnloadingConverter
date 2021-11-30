@@ -14,7 +14,8 @@ import java.util.*
 
 class UploadingConverter(
     private val uploadingFile: File,
-    private val uploadingDateTarget: Calendar
+    private val uploadingDateTarget: Calendar,
+    private val listOfExceptionDates: List<Date>
 ) {
     private var uploadingSheet: Sheet
     private var uploadingWorkbook: Workbook
@@ -120,13 +121,26 @@ class UploadingConverter(
         rowContentDateCalendar.time = rowContentDate
         //if (row.getCell(COLUMN_NUMBER_CODE).cellType == CellType.BLANK) isError = true
         //if (row.getCell(COLUMN_NUMBER_ADDRESS).cellType == CellType.BLANK) isError = true
-        if (rowContentDateCalendar.get(Calendar.YEAR) != uploadingDateTarget.get(Calendar.YEAR) ||
-                rowContentDateCalendar.get(Calendar.MONTH) != uploadingDateTarget.get(Calendar.MONTH) ||
-                rowContentDateCalendar.get(Calendar.DAY_OF_MONTH) != uploadingDateTarget.get(Calendar.DAY_OF_MONTH)) {
-            isError = true
+//        if (rowContentDateCalendar.get(Calendar.YEAR) != uploadingDateTarget.get(Calendar.YEAR) ||
+//                rowContentDateCalendar.get(Calendar.MONTH) != uploadingDateTarget.get(Calendar.MONTH) ||
+//                rowContentDateCalendar.get(Calendar.DAY_OF_MONTH) != uploadingDateTarget.get(Calendar.DAY_OF_MONTH)) {
+//            isError = true
+//        }
+        listOfExceptionDates.forEach { date ->
+            val checkingDateCalendar = Calendar.getInstance().also { it.time = date }
+            if (isIdenticalDates(rowContentDateCalendar, checkingDateCalendar)) {
+                row.getCell(COLUMN_NUMBER_DATE_OF_READINGS).setCellValue(uploadingDateTarget)
+                return isError
+            }
         }
-
+        if (!isIdenticalDates(rowContentDateCalendar, uploadingDateTarget)) isError = true
         return isError
+    }
+
+    private fun isIdenticalDates(dateFirst: Calendar, dateSecond: Calendar): Boolean {
+        return  dateFirst.get(Calendar.YEAR) == dateSecond.get(Calendar.YEAR) &&
+                dateFirst.get(Calendar.MONTH) == dateSecond.get(Calendar.MONTH) &&
+                dateFirst.get(Calendar.DAY_OF_MONTH) == dateSecond.get(Calendar.DAY_OF_MONTH)
     }
 
     private fun createDBFUploadingFile(prefixFileName: String, uploadingData: MutableList<Subscriber>) {
